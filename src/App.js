@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import Blog from './components/Blog'
+import CreateForm from './components/CreateForm'
 import blogService from './services/blogs'
 import loginService from './services/login'
 
@@ -14,6 +15,7 @@ const App = () => {
   const [author, setAuthor] = useState('')
   const [url, setUrl] = useState('')
   const [likes, setLikes] = useState('')
+  const [createVisible, setCreateVisible] = useState(false)
 
   const handleLogin = async (event) => {
     event.preventDefault()
@@ -48,11 +50,15 @@ const App = () => {
 
 
   useEffect(() => {
-    if (user) {
-      blogService.getAll(user.token).then(blogs =>
-        setBlogs(blogs)
-      )
+    async function getAllBlogs(user) {
+      if (user?.token) {
+        const allBlogs = await blogService.getAll(user.token);
+        const sortedBlogs = allBlogs.sort((a, b) => b.likes < a.likes ? - 1 : Number(b.likes > a.likes))
+        setBlogs(sortedBlogs)
+      }
     }
+
+    getAllBlogs(user)
 
   }, [user])
 
@@ -64,7 +70,7 @@ const App = () => {
   }
 
 
-  const handleCreate = (event) => {
+  const handleCreate = async (event) => {
     event.preventDefault()
     const newBlog = {
       title,
@@ -73,18 +79,16 @@ const App = () => {
       likes
     }
     try {
-      blogService.createNew(user.token, newBlog)
-        .then((res) => {
-          setSuccess(`a new blog ${res.title} by ${res.author} added`)
-          document.getElementById("createForm").reset();
-          setTitle('')
-          setAuthor('')
-          setUrl('')
-          setLikes('')
-          setTimeout(() => {
-            setSuccess(null)
-          }, 5000)
-        })
+      const res = await blogService.createNew(user.token, newBlog)
+      setSuccess(`a new blog ${res.title} by ${res.author} added`)
+      document.getElementById("createForm").reset();
+      setTitle('')
+      setAuthor('')
+      setUrl('')
+      setLikes('')
+      setTimeout(() => {
+        setSuccess(null)
+      }, 5000)
 
     }
     catch (exception) {
@@ -125,21 +129,26 @@ const App = () => {
       }
       <p>{user.name} logged in</p> <button onClick={(event) => handleLogOut(event)} >logout</button>
       <br />
-      <h2>Create new</h2>
-      <form id="createForm" onSubmit={(event) => handleCreate(event)}>
-        title <input type="text" name="title" id="title" onChange={({ target }) => setTitle(target.value)} />
-        <br />
-        author <input type="text" name="author" id="author" onChange={({ target }) => setAuthor(target.value)} />
-        <br />
-        url <input type="text" name="link" id="link" onChange={({ target }) => setUrl(target.value)} />
-        <br />
-        likes <input type="text" name="likes" id="likes" onChange={({ target }) => setLikes(target.value)} />
-        <br />
-        <input type="submit" value="create" />
-      </form>
+      <div style={{ display: createVisible ? 'block' : 'none' }} >
+        <CreateForm
+          handleCreate={handleCreate}
+          setTitle={setTitle}
+          setAuthor={setAuthor}
+          setUrl={setUrl}
+          setLikes={setLikes}
+        >
+        </CreateForm>
+      </div>
+      <div style={{ display: createVisible ? 'none' : 'block' }} >
+        <button onClick={() => setCreateVisible(true)} >create new blog</button>
+      </div>
+      <div style={{ display: createVisible ? 'block' : 'none' }} >
+        <button onClick={() => setCreateVisible(false)} >cancel</button>
+      </div>
+
       <br />
       {blogs.map(blog =>
-        <Blog key={blog.id} blog={blog} />
+        <Blog key={blog.id} user={user} blog={blog} />
       )}
     </div>
   )
